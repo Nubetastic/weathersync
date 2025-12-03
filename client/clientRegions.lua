@@ -1,9 +1,8 @@
 local currentRegion = nil
 local lastValidRegion = nil
 local regionWeatherQueues = {}
-local currentSlotIndex = {}
-local regionUpdateInterval = 60000
-local regionCheckInterval = 1000
+local regionCheckInterval = ConfigRegionWeather.RegionCheckInterval or 250
+local transitionTime = ConfigRegionWeather.TransitionTime or 15.0
 local transitionInProgress = false
 
 local function log(label, message)
@@ -76,7 +75,9 @@ local function SearchNearbyForRegion(maxDistance)
             local regionKey, regionData = FindRegionByHash(zoneHash)
             
             if regionKey and regionData then
-                log("success", "Found region via nearby search: " .. regionKey)
+                if ConfigRegionWeather.Debug then
+                    log("success", "Found region via nearby search: " .. regionKey)
+                end
                 return regionKey, regionData
             end
         end
@@ -95,7 +96,9 @@ local function GetPlayerRegion()
     end
     
     if lastValidRegion then
-        log("success", "Using cached region: " .. lastValidRegion.key)
+        if ConfigRegionWeather.Debug then
+            log("success", "Using cached region: " .. lastValidRegion.key)
+        end
         return lastValidRegion.key, lastValidRegion.data
     end
     
@@ -154,59 +157,74 @@ local function PrintRegionWeatherList()
     end
 end
 
-local function ApplyRegionalWeather(regionName, weatherGroup, weatherVariant)
+local function ApplyRegionalWeather(regionName, weatherGroup, weatherVariant, isRegionChange)
     if not weatherVariant then
         return
     end
     
     local isSnowyWeatherVariant = weatherGroup == "Snow"
-    log("success", "Applying weather: " .. weatherVariant .. " (" .. weatherGroup .. ") in region: " .. regionName)
-    TriggerEvent("weathersync:setMyWeather", weatherVariant, 5.0, isSnowyWeatherVariant)
+    local transition = isRegionChange and transitionTime or 5.0
+    
+    if ConfigRegionWeather.Debug then
+        log("success", "Applying weather: " .. weatherVariant .. " (" .. weatherGroup .. ") in region: " .. regionName .. " (transition: " .. transition .. "s)")
+    end
+    
+    if isSnowyWeatherVariant and isRegionChange then
+        TriggerEvent("weathersync:setMyWeather", weatherVariant, transition, false)
+        Citizen.SetTimeout(transitionTime * 1000, function()
+            TriggerEvent("weathersync:setMyWeather", weatherVariant, 0.1, true)
+        end)
+    else
+        TriggerEvent("weathersync:setMyWeather", weatherVariant, transition, isSnowyWeatherVariant)
+    end
 end
 
-local function UpdateRegionalWeather(regionName)
-    if not regionWeatherQueues[regionName] then
+local function UpdateRegionalWeather(regionName, isRegionChange)
+    if not regionWeatherQueues[regionName] or #regionWeatherQueues[regionName] == 0 then
         return
     end
     
-    if not currentSlotIndex[regionName] then
-        currentSlotIndex[regionName] = 1
-    end
-    
-    local slots = regionWeatherQueues[regionName]
-    local slotIndex = currentSlotIndex[regionName]
-    
-    if slotIndex > #slots then
-        slotIndex = 1
-        currentSlotIndex[regionName] = 1
-    end
-    
-    local currentSlot = slots[slotIndex]
+    local currentSlot = regionWeatherQueues[regionName][1]
     if currentSlot then
-        ApplyRegionalWeather(regionName, currentSlot.weatherType, currentSlot.variant)
-        currentSlotIndex[regionName] = slotIndex + 1
+        ApplyRegionalWeather(regionName, currentSlot.weatherType, currentSlot.variant, isRegionChange)
     end
 end
 
 local function OnRegionalWeatherUpdate(regionName, slots)
     regionWeatherQueues[regionName] = slots
-    currentSlotIndex[regionName] = 1
-    log("success", "Updated weather queue for region: " .. regionName .. " with " .. #slots .. " slots")
+    if ConfigRegionWeather.Debug then
+        log("success", "Updated weather queue for region: " .. regionName .. " with " .. #slots .. " slots")
+    end
+    
+    if currentRegion == regionName then
+        UpdateRegionalWeather(regionName, true)
+    end
 end
 
 local function OnRegionChange(newRegion, oldRegion)
-    if oldRegion then
-        log("success", "Left region: " .. oldRegion)
+    if transitionInProgress then
+        return
     end
     
-    log("success", "Entered region: " .. newRegion)
+    transitionInProgress = true
+    
+    if ConfigRegionWeather.Debug then
+        if oldRegion then
+            log("success", "Left region: " .. oldRegion)
+        end
+        log("success", "Entered region: " .. newRegion .. " (starting smooth transition)")
+    end
     currentRegion = newRegion
     
     TriggerServerEvent("weathersync:requestRegionalWeather", newRegion)
+    
+    Citizen.SetTimeout(transitionTime * 1000, function()
+        transitionInProgress = false
+    end)
 end
 
 local function RegionCheckThread()
-    while ConfigRegionWeather.Enabled do
+    while true do
         local regionKey, regionData = GetPlayerRegion()
         
         if regionKey then
@@ -219,27 +237,15 @@ local function RegionCheckThread()
     end
 end
 
-local function WeatherUpdateThread()
-    while ConfigRegionWeather.Enabled do
-        if currentRegion and regionWeatherQueues[currentRegion] then
-            UpdateRegionalWeather(currentRegion)
-        end
-        
-        Citizen.Wait(regionUpdateInterval)
-    end
-end
-
 RegisterNetEvent("weathersync:updateRegionalWeather")
 AddEventHandler("weathersync:updateRegionalWeather", function(regionName, slots)
     OnRegionalWeatherUpdate(regionName, slots)
 end)
 
 RegisterNetEvent("weathersync:loadRegionalWeather", function()
-    if not ConfigRegionWeather.Enabled then
-        return
+    if ConfigRegionWeather.Debug then
+        log("success", "Initializing regional weather system")
     end
-    
-    log("success", "Initializing regional weather system")
     
     Citizen.CreateThread(function()
         Citizen.Wait(500)
@@ -251,7 +257,6 @@ RegisterNetEvent("weathersync:loadRegionalWeather", function()
     end)
     
     Citizen.CreateThread(RegionCheckThread)
-    Citizen.CreateThread(WeatherUpdateThread)
 end)
 
 Citizen.CreateThread(function()
@@ -294,9 +299,8 @@ Citizen.CreateThread(function()
         end
     end)
     
-    if ConfigRegionWeather.Enabled then
-        TriggerEvent("weathersync:loadRegionalWeather")
-    end
+    TriggerEvent("weathersync:loadRegionalWeather")
 end)
 
 exports("printRegionWeatherList", PrintRegionWeatherList)
+exports("getCurrentRegion", function() return currentRegion end)

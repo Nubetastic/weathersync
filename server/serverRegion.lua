@@ -1,6 +1,15 @@
+local currentTime = Config.time
+local currentTimescale = Config.timescale
+local timeIsFrozen = Config.timeIsFrozen
+local syncDelay = Config.syncDelay
+local currentWindDirection = Config.windDirection
+local currentWindSpeed = Config.windSpeed
+local windIsFrozen = Config.windIsFrozen
+
 local regionWeatherQueues = {}
 local regionAdjacencyMap = {}
 local configRegionWeather = {}
+local weatherInterval = Config.weatherInterval
 
 local CACHE_FILE = "cache/weather_cache.json"
 local HIGH_SEVERITY_THRESHOLD = 70
@@ -9,6 +18,9 @@ local LAZY_LOAD_THRESHOLD = 5
 local INITIAL_SLOT_COUNT = 10
 local LAZY_SLOT_BATCH = 5
 local TRANSITION_GAP_THRESHOLD = 30
+
+local dayLength = 86400
+local weekLength = 604800
 
 local Months = {"January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"}
 
@@ -50,7 +62,9 @@ local function BuildAdjacencyMap()
         ["RIO_BRAVO"] = {"GAPTOOTH_RIDGE"},
     }
     
-    log("success", "Built adjacency map with " .. CountTable(regionAdjacencyMap) .. " regions")
+    if ConfigRegionWeather.Debug then
+        log("success", "Built adjacency map with " .. CountTable(regionAdjacencyMap) .. " regions")
+    end
 end
 
 local function LoadRegionConfig()
@@ -60,7 +74,9 @@ local function LoadRegionConfig()
     end
     
     configRegionWeather = ConfigRegionWeather
-    log("success", "Loaded region config with " .. CountTable(configRegionWeather.Regions) .. " regions")
+    if ConfigRegionWeather.Debug then
+        log("success", "Loaded region config with " .. CountTable(configRegionWeather.Regions) .. " regions")
+    end
     return true
 end
 
@@ -73,7 +89,9 @@ local function InitializeRegionQueues()
         }
     end
     
-    log("success", "Initialized " .. CountTable(regionWeatherQueues) .. " region queues")
+    if ConfigRegionWeather.Debug then
+        log("success", "Initialized " .. CountTable(regionWeatherQueues) .. " region queues")
+    end
 end
 
 local function GetCurrentSeason()
@@ -89,16 +107,35 @@ local function GetCurrentSeason()
     end
     
     local day = time.day or 0
-    
-    if day >= 0 and day <= 80 then
-        return "Winter"
-    elseif day >= 81 and day <= 170 then
-        return "Spring"
-    elseif day >= 171 and day <= 260 then
-        return "Summer"
+    local season
+
+    if ConfigRegionWeather.Hemisphere then
+        if day >= 0 and day <= 80 then
+            season = "Winter"
+        elseif day >= 81 and day <= 170 then
+            season = "Spring"
+        elseif day >= 171 and day <= 260 then
+            season = "Summer"
+        else
+            season = "Fall"
+        end
     else
-        return "Fall"
+        if day >= 0 and day <= 80 then
+            season = "Summer"
+        elseif day >= 81 and day <= 170 then
+            season = "Fall"
+        elseif day >= 171 and day <= 260 then
+            season = "Winter"
+        else
+            season = "Spring"
+        end
     end
+    
+    if ConfigRegionWeather.Debug then
+        log("success", string.format("Season: %s (Day: %d, Hour: %d, Minute: %d)", season, day, time.hour or 0, time.minute or 0))
+    end
+    
+    return season
 end
 
 local function GetSeasonalModifier(region, season, weatherType)
@@ -241,7 +278,9 @@ local function GenerateWeatherSlots(regionNameParam, count, phase)
     
     local multiRegion = regionNameParam == nil
     
-    log("success", "Generating " .. count .. " slots for " .. #regionsToProcess .. " region(s) - Phase: " .. phase)
+    if ConfigRegionWeather.Debug then
+        log("success", "Generating " .. count .. " slots for " .. #regionsToProcess .. " region(s) - Phase: " .. phase)
+    end
     
     -- PASS 1: Generate slots independently
     for _, targetRegion in ipairs(regionsToProcess) do
@@ -381,11 +420,15 @@ local function GenerateWeatherSlots(regionNameParam, count, phase)
 end
 
 local function SaveCache()
-    log("success", "Weather cache saved (in-memory)")
+    if ConfigRegionWeather.Debug then
+        log("success", "Weather cache saved (in-memory)")
+    end
 end
 
 local function LoadCache()
-    log("success", "No persistent cache file found, using fresh generation")
+    if ConfigRegionWeather.Debug then
+        log("success", "No persistent cache file found, using fresh generation")
+    end
     return false
 end
 
@@ -419,6 +462,50 @@ local function AdvanceWeatherTick()
     end
 end
 
+local function setTime(d, h, m, s, t, f)
+    TriggerClientEvent("weathersync:changeTime", -1, h, m, s, t, f)
+    currentTime = DHMSToTime(d, h, m, s)
+    timeIsFrozen = f
+end
+
+local function getTime()
+    local d, h, m, s = TimeToDHMS(currentTime)
+    return {day = d, hour = h, minute = m, second = s}
+end
+
+local function setTimescale(scale)
+    TriggerClientEvent("weathersync:changeTimescale", -1, scale)
+    currentTimescale = scale
+end
+
+local function setWind(direction, speed, frozen)
+    currentWindDirection = direction
+    currentWindSpeed = speed
+    windIsFrozen = frozen
+end
+
+local function getWind()
+    return {direction = currentWindDirection, speed = currentWindSpeed}
+end
+
+local function setSyncDelay(delay)
+    syncDelay = delay
+end
+
+local function syncTime(player, tick)
+    local timeTransition = ((dayLength - (currentTime % dayLength) + tick) % dayLength <= tick and 0 or syncDelay)
+    local day, hour, minute, second = TimeToDHMS(currentTime)
+    TriggerClientEvent("weathersync:changeTime", player, hour, minute, second, timeTransition, timeIsFrozen)
+end
+
+local function syncTimescale(player)
+    TriggerClientEvent("weathersync:changeTimescale", player, currentTimescale)
+end
+
+local function syncWind(player)
+    TriggerClientEvent("weathersync:changeWind", player, currentWindDirection, currentWindSpeed)
+end
+
 local function PrintRegionForecast(regionName)
     local slots = GetWeatherSlots(regionName)
     if #slots == 0 then
@@ -450,7 +537,9 @@ local function PrintAllForecasts()
 end
 
 local function Initialize()
-    log("success", "Initializing ServerRegion weather system")
+    if ConfigRegionWeather.Debug then
+        log("success", "Initializing ServerRegion weather system")
+    end
     
     if not LoadRegionConfig() then
         log("error", "Failed to load region config!")
@@ -461,12 +550,22 @@ local function Initialize()
     InitializeRegionQueues()
     
     LoadCache()
-    log("success", "Generating initial weather for all regions")
+    if ConfigRegionWeather.Debug then
+        log("success", "Generating initial weather for all regions")
+    end
     GenerateWeatherSlots(nil, INITIAL_SLOT_COUNT, "initial")
     SaveCache()
     
-    log("success", "ServerRegion initialization complete")
+    if ConfigRegionWeather.Debug then
+        log("success", "ServerRegion initialization complete")
+    end
 end
+
+RegisterCommand("forecast", function(source, args, raw)
+    if source and source > 0 then
+        TriggerClientEvent("weathersync:toggleForecast", source)
+    end
+end, false)
 
 RegisterCommand("regionweather", function(source, args, rawCommand)
     if #args < 1 then
@@ -489,22 +588,177 @@ end, false)
 
 RegisterCommand("allforecast", function(source, args, rawCommand)
     local forecastData = {}
-    for regionName, _ in pairs(configRegionWeather.Regions) do
-        local slots = GetWeatherSlots(regionName)
-        if #slots > 0 then
-            local forecast = {}
-            for _, slot in ipairs(slots) do
-                table.insert(forecast, slot.variant)
+    local regionGroups = configRegionWeather.RegionGroups or {}
+    
+    for stateName, regions in pairs(regionGroups) do
+        forecastData[stateName] = {}
+        for _, regionName in ipairs(regions) do
+            local slots = GetWeatherSlots(regionName)
+            if #slots > 0 then
+                local forecast = {}
+                for _, slot in ipairs(slots) do
+                    table.insert(forecast, slot.variant)
+                end
+                forecastData[stateName][regionName] = forecast
             end
-            forecastData[regionName] = forecast
         end
     end
-    TriggerClientEvent("weathersync:printAllForecasts", source, forecastData)
+    
+    TriggerClientEvent("weathersync:printAllForecasts", source, forecastData, regionGroups)
 end, false)
+
+local function createRegionalForecast(regionName)
+    local forecast = {}
+    local queue = regionWeatherQueues[regionName]
+    
+    if not queue or not queue.slots or #queue.slots == 0 then
+        return forecast
+    end
+    
+    for i = 0, math.min(#queue.slots - 1, 23) do
+        local d, h, m, s, weather, wind
+        
+        if i == 0 then
+            d, h, m, s = TimeToDHMS(currentTime)
+            local currentSlot = queue.slots[queue.currentSlotIndex]
+            weather = currentSlot and currentSlot.variant:lower() or "sunny"
+            wind = currentWindDirection
+        else
+            local time = (timeIsFrozen and currentTime or (currentTime + weatherInterval * i) % weekLength)
+            d, h, m, s = TimeToDHMS(time - time % weatherInterval)
+            local slotIndex = queue.currentSlotIndex + i
+            if slotIndex <= #queue.slots then
+                weather = queue.slots[slotIndex].variant:lower()
+            else
+                weather = "sunny"
+            end
+            wind = currentWindDirection
+        end
+        
+        table.insert(forecast, {day = d, hour = h, minute = m, second = s, weather = weather, wind = wind})
+    end
+    
+    return forecast
+end
+
+RegisterNetEvent("weathersync:requestRegionalForecast")
+AddEventHandler("weathersync:requestRegionalForecast", function(regionName)
+    local forecast = createRegionalForecast(regionName)
+    TriggerClientEvent("weathersync:updateForecast", source, forecast)
+end)
 
 exports("getWeatherSlots", GetWeatherSlots)
 exports("getCurrentRegionWeather", GetCurrentRegionWeather)
 exports("advanceWeatherTick", AdvanceWeatherTick)
 exports("saveCache", SaveCache)
+exports("getTime", getTime)
+exports("setTime", setTime)
+exports("setTimescale", setTimescale)
+exports("getWind", getWind)
+exports("setWind", setWind)
+exports("setSyncDelay", setSyncDelay)
+
+RegisterNetEvent("weathersync:init")
+RegisterNetEvent("weathersync:setTime")
+RegisterNetEvent("weathersync:setTimescale")
+RegisterNetEvent("weathersync:setWind")
+RegisterNetEvent("weathersync:setSyncDelay")
+RegisterNetEvent("weathersync:requestRegionalWeather")
+
+AddEventHandler("weathersync:setTime", setTime)
+AddEventHandler("weathersync:setTimescale", setTimescale)
+AddEventHandler("weathersync:setSyncDelay", setSyncDelay)
+AddEventHandler("weathersync:setWind", setWind)
+
+AddEventHandler("weathersync:requestRegionalWeather", function(regionName)
+    local slots = GetWeatherSlots(regionName)
+    TriggerClientEvent("weathersync:updateRegionalWeather", source, regionName, slots)
+end)
+
+AddEventHandler("weathersync:init", function()
+    syncTime(source, 0)
+    syncWind(source)
+    syncTimescale(source)
+end)
+
+RegisterCommand("time", function(source, args, raw)
+    if #args > 0 then
+        local d = tonumber(args[1]) or 0
+        local h = tonumber(args[2]) or 0
+        local m = tonumber(args[3]) or 0
+        local s = tonumber(args[4]) or 0
+        local t = tonumber(args[5]) or 0
+        local f = args[6] == "1"
+        setTime(d, h, m, s, t, f)
+    else
+        local d, h, m, s = TimeToDHMS(currentTime)
+        local message = {color = {255, 255, 128}, args = {"Time", string.format("%s %.2d:%.2d:%.2d", GetDayOfWeek(d), h, m, s)}}
+        if source and source > 0 then
+            TriggerClientEvent("chat:addMessage", source, message)
+        else
+            print(table.concat(message.args, ": "))
+        end
+    end
+end, true)
+
+RegisterCommand("timescale", function(source, args, raw)
+    if args[1] then
+        setTimescale(tonumber(args[1]) + 0.0)
+    else
+        local message = {color = {255, 255, 128}, args = {"Timescale", currentTimescale}}
+        if source and source > 0 then
+            TriggerClientEvent("chat:addMessage", source, message)
+        else
+            print(table.concat(message.args, ": "))
+        end
+    end
+end, true)
+
+RegisterCommand("syncdelay", function(source, args, raw)
+    if args[1] then
+        setSyncDelay(tonumber(args[1]))
+    else
+        local message = {color = {255, 255, 128}, args = {"Sync delay", syncDelay}}
+        if source and source > 0 then
+            TriggerClientEvent("chat:addMessage", source, message)
+        else
+            print(table.concat(message.args, ": "))
+        end
+    end
+end, true)
+
+RegisterCommand("wind", function(source, args, raw)
+    if #args > 0 then
+        local direction = tonumber(args[1]) + 0.0 or 0.0
+        local speed = tonumber(args[2]) + 1.0 or 0.0
+        local frozen = args[3] == "1"
+        setWind(direction, speed, frozen)
+    end
+end, true)
 
 Initialize()
+
+Citizen.CreateThread(function()
+    while true do
+        local tick
+        
+        if currentTimescale == 0 then
+            tick = syncDelay / 1000
+            if not timeIsFrozen then
+                local now = os.date("*t", os.time() + Config.realTimeOffset)
+                currentTime = now.sec + now.min * 60 + now.hour * 3600 + (now.wday - 1) * dayLength
+            end
+        else
+            tick = currentTimescale * (syncDelay / 1000)
+            if not timeIsFrozen then
+                currentTime = math.floor(currentTime + tick) % weekLength
+            end
+        end
+        
+        syncTime(-1, tick)
+        syncWind(-1)
+        syncTimescale(-1)
+        
+        Citizen.Wait(syncDelay)
+    end
+end)

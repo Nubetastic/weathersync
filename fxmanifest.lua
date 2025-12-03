@@ -29,6 +29,6 @@ client_scripts {
 }
 
 server_scripts {
-    "server/serverRegion.lua",
-    "server/server.lua"
+    "server/server.lua",
+    "server/serverRegion.lua"
 }

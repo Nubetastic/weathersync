@@ -321,22 +321,19 @@ AddEventHandler("weathersync:changeWeather", function(weather, transitionTime, p
     if Config.isRDR then
         if not currentWeather then
             transitionTime = 1.0
-            SetSnowCoverageType(0)
-            snowOnGround = false
         end
 
         local inSnowyRegion = isInSnowyRegion(x, y, z)
 
-        if permanentSnow or (Config.dynamicSnow and (inSnowyRegion or isSnowyWeather(translatedWeather))) then
-            if not snowOnGround then
-                snowOnGround = true
-                SetSnowCoverageType(3)
-            end
+        if permanentSnow then
+            SetSnowCoverageType(3)
+            snowOnGround = true
+        elseif Config.dynamicSnow and (inSnowyRegion or isSnowyWeather(translatedWeather)) then
+            SetSnowCoverageType(isSnowyWeather(translatedWeather) and 3 or 0)
+            snowOnGround = isSnowyWeather(translatedWeather)
         else
-            if snowOnGround then
-                snowOnGround = false
-                SetSnowCoverageType(0)
-            end
+            SetSnowCoverageType(0)
+            snowOnGround = false
         end
     else
         snowOnGround = (permanentSnow and not (Config.disableSnowOnCayoPerico and isInCayoPerico(x, y, z))) or (Config.dynamicSnow and isSnowyWeather(translatedWeather))
@@ -371,23 +368,28 @@ AddEventHandler("weathersync:changeWind", function(direction, speed)
     end
 end)
 
-if ConfigRegionWeather.Enabled then
-    TriggerEvent("weathersync:loadRegionalWeather")
-end
+TriggerEvent("weathersync:loadRegionalWeather")
 
 AddEventHandler("weathersync:toggleForecast", function()
     forecastIsDisplayed = not forecastIsDisplayed
-
-    Citizen.CreateThread(function()
-        while forecastIsDisplayed do
-            TriggerServerEvent("weathersync:requestUpdatedForecast")
-            Citizen.Wait(1000)
+    
+    if forecastIsDisplayed then
+        local regionKey = exports['weathersync']:getCurrentRegion()
+        if not regionKey then
+            TriggerEvent("chat:addMessage", {color = {255, 0, 0}, args = {"Error", "Unable to determine current region"}})
+            forecastIsDisplayed = false
+            return
         end
-    end)
-
-    SendNUIMessage({
-        action = "toggleForecast"
-    })
+        
+        Citizen.CreateThread(function()
+            while forecastIsDisplayed do
+                TriggerServerEvent("weathersync:requestRegionalForecast", regionKey)
+                Citizen.Wait(1000)
+            end
+        end)
+    end
+    
+    SendNUIMessage({action = "toggleForecast"})
 end)
 
 AddEventHandler("weathersync:updateForecast", updateForecast)
@@ -569,10 +571,24 @@ AddEventHandler("weathersync:printForecast", function(regionName, forecast)
 end)
 
 RegisterNetEvent("weathersync:printAllForecasts")
-AddEventHandler("weathersync:printAllForecasts", function(forecastData)
+AddEventHandler("weathersync:printAllForecasts", function(forecastData, regionGroups)
     print("^2[FORECAST]^7 =============== ALL REGIONS ===============")
-    for regionName, forecast in pairs(forecastData) do
-        print("^2[FORECAST]^7 " .. regionName .. ": " .. table.concat(forecast, " > "))
+    
+    local stateOrder = {"NEW HANOVER", "WEST ELIZABETH", "NEW AUSTIN", "LEMOYNE", "AMBARINO"}
+    
+    for _, stateName in ipairs(stateOrder) do
+        local stateData = forecastData[stateName]
+        if stateData then
+            print("^3" .. stateName .. "^7")
+            local regions = regionGroups[stateName] or {}
+            for _, regionName in ipairs(regions) do
+                local forecast = stateData[regionName]
+                if forecast then
+                    print("  ^2" .. regionName .. "^7: " .. table.concat(forecast, " > "))
+                end
+            end
+        end
     end
+    
     print("^2[FORECAST]^7 ==========================================")
 end)

@@ -1,6 +1,26 @@
 ConfigRegionWeather = {}
 
-ConfigRegionWeather.Enabled = true
+ConfigRegionWeather.Debug = false
+
+ConfigRegionWeather.Hemisphere = true -- true = northern hemisphere, false = southern hemisphere
+
+-- Region transition settings
+ConfigRegionWeather.RegionCheckInterval = 250  -- How often to check for region changes (ms) - lower = faster detection
+ConfigRegionWeather.TransitionTime = 15.0      -- Weather transition duration when crossing regions (seconds)
+
+-- Snow accumulation settings
+ConfigRegionWeather.SnowAccumulationRate = 0.05  -- How much snow level increases per update (0.0-1.0)
+ConfigRegionWeather.SnowMeltRate = 0.02          -- How much snow level decreases per update (0.0-1.0)
+ConfigRegionWeather.SnowUpdateInterval = 5000    -- How often to update snow levels (ms)
+
+
+ConfigRegionWeather.RegionGroups = {
+    ["NEW HANOVER"] = {"HEARTLANDS", "ROANOKE_RIDGE"},
+    ["WEST ELIZABETH"] = {"GREAT_PLAINS", "BIG_VALLEY", "TALL_TREES"},
+    ["NEW AUSTIN"] = {"HENNIGANS_STEAD", "CHOLLA_SPRINGS", "GAPTOOTH_RIDGE", "RIO_BRAVO"},
+    ["LEMOYNE"] = {"SCARLETT_MEADOWS", "BAYOU_NWA", "BLUEWATER_MARSH"},
+    ["AMBARINO"] = {"GRIZZLIES_EAST", "GRIZZLIES_WEST", "CUMBERLAND_FOREST"}
+}
 
 
 ConfigRegionWeather.WeatherGroups = {
@@ -39,6 +59,7 @@ ConfigRegionWeather.WeatherGroups = {
         ["100"] = "SANDSTORM",
     }
 }
+
 
 ConfigRegionWeather.Regions = {
     -- ============================================

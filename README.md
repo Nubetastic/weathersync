@@ -2,8 +2,6 @@
 
 # Features
 
-- Added Seasonal and regional weather
-
 - Syncs time and weather for all players
 
 - Configurable weather pattern
