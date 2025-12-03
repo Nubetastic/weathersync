@@ -7,24 +7,28 @@ author "kibukj"
 description "Time and weather synchronization for FiveM and RedM"
 url "https://github.com/kibook/weathersync"
 
+
 ui_page "ui/index.html"
 
 files {
-	"ui/index.html",
-	"ui/style.css",
-	"ui/script.js",
-	"ui/CHINESER.TTF"
+    "ui/index.html",
+    "ui/style.css",
+    "ui/script.js",
+    "ui/CHINESER.TTF"
 }
 
 shared_scripts {
-	"shared.lua",
-	"config.lua"
+    "shared/shared.lua",
+    "shared/config.lua",
+    "shared/configRegionWeather.lua"
 }
 
 client_scripts {
-	"client.lua"
+    "client/client.lua",
+    "client/clientRegions.lua"
 }
 
 server_scripts {
-	"server.lua"
+    "server/serverRegion.lua",
+    "server/server.lua"
 }

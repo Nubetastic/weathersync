@@ -2,6 +2,8 @@
 
 # Features
 
+- Added Seasonal and regional weather
+
 - Syncs time and weather for all players
 
 - Configurable weather pattern
@@ -91,10 +93,10 @@ A table with the current day, hour, minute and second:
 
 ```lua
 {
-	day = 0,
-	hour = 6,
-	minute = 0,
-	second = 0
+    day = 0,
+    hour = 6,
+    minute = 0,
+    second = 0
 }
 ```
 ### setTime
@@ -185,8 +187,8 @@ A table containing the wind direction and base speed:
 
 ```lua
 {
-	direction = 180.0,
-	speed = 0.0
+    direction = 180.0,
+    speed = 0.0
 }
 ```
 
@@ -235,23 +237,23 @@ A table containing the weather forecast:
 
 ```lua
 {
-	{
-		day = 0,
-		hour = 6,
-		minute = 0,
-		second = 0,
-		weather = "sunny",
-		wind = 0.0
-	},
-	{
-		day = 0,
-		hour = 7,
-		minute = 0,
-		second = 0,
-		weather = "clouds",
-		wind = 10.0
-	},
-	...
+    {
+        day = 0,
+        hour = 6,
+        minute = 0,
+        second = 0,
+        weather = "sunny",
+        wind = 0.0
+    },
+    {
+        day = 0,
+        hour = 7,
+        minute = 0,
+        second = 0,
+        weather = "clouds",
+        wind = 10.0
+    },
+    ...
 }
 ```
 
