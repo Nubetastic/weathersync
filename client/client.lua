@@ -23,6 +23,7 @@ RegisterNetEvent("weathersync:toggleSync")
 RegisterNetEvent("weathersync:setSyncEnabled")
 RegisterNetEvent("weathersync:setMyTime")
 RegisterNetEvent("weathersync:setMyWeather")
+RegisterNetEvent("RSGCore:Client:OnPlayerLoaded")
 
 local function SetSnowCoverageType(type)
     return Citizen.InvokeNative(0xF02A9C330BBFC5C7, type)
@@ -468,6 +469,10 @@ AddEventHandler("weathersync:setSyncEnabled", setSyncEnabled)
 AddEventHandler("weathersync:toggleSync", toggleSync)
 AddEventHandler("weathersync:setMyWeather", setMyWeather)
 AddEventHandler("weathersync:setMyTime", setMyTime)
+AddEventHandler("RSGCore:Client:OnPlayerLoaded", function()
+    syncEnabled = true
+    currentWeather = nil
+end)
 
 Citizen.CreateThread(function()
     SetNuiFocus(false, false)
