@@ -1,6 +1,7 @@
 Config = {}
 
 Config.Notify = false
+Config.Debug = false
 
 -- Determine if game is GTA V or RDR 2
 if IsDuplicityVersion() then
@@ -50,6 +51,16 @@ Config.permanentSnow = false
 --  a) in the snowy area of the map
 --  b) in the northern part of the map with snowy weather
 Config.dynamicSnow = true
+
+-- Weather types that trigger dynamic snow
+Config.dynamicSnowTypes = {
+    ["SNOW"] = true,
+    ["SLEET"] = true,
+    ["HAIL"] = true,
+    ["GROUNDBLIZZARD"] = true,
+    ["BLIZZARD"] = true,
+    ["WHITEOUT"] = true,
+}
 
 -- Number of weather intervals to queue up
 Config.maxForecast = 23

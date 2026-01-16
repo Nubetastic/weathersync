@@ -25,7 +25,7 @@ shared_scripts {
 
 client_scripts {
     "client/client.lua",
-    "client/clientRegions.lua"
+    "client/region.lua"
 }
 
 server_scripts {

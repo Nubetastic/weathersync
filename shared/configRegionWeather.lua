@@ -14,6 +14,24 @@ ConfigRegionWeather.SnowMeltRate = 0.02          -- How much snow level decrease
 ConfigRegionWeather.SnowUpdateInterval = 5000    -- How often to update snow levels (ms)
 
 
+ConfigRegionWeather.RegionsHash = {
+    [131399519] = "HEARTLANDS",
+    [178647645] = "ROANOKE_RIDGE",
+    [476637847] = "GREAT_PLAINS",
+    [822658194] = "BIG_VALLEY",
+    [1684533001] = "TALL_TREES",
+    [892930832] = "HENNIGANS_STEAD",
+    [-108848014] = "CHOLLA_SPRINGS",
+    [-2066240242] = "GAPTOOTH_RIDGE",
+    [-2145992129] = "RIO_BRAVO",
+    [-864275692] = "SCARLETT_MEADOWS",
+    [2025841068] = "BAYOU_NWA",
+    [1308232528] = "BLUEWATER_MARSH",
+    [-120156735] = "GRIZZLIES_EAST",
+    [1645618177] = "GRIZZLIES_WEST",
+    [1835499550] = "CUMBERLAND_FOREST",
+}
+
 ConfigRegionWeather.RegionGroups = {
     ["NEW HANOVER"] = {"HEARTLANDS", "ROANOKE_RIDGE"},
     ["WEST ELIZABETH"] = {"GREAT_PLAINS", "BIG_VALLEY", "TALL_TREES"},
@@ -22,6 +40,25 @@ ConfigRegionWeather.RegionGroups = {
     ["AMBARINO"] = {"GRIZZLIES_EAST", "GRIZZLIES_WEST", "CUMBERLAND_FOREST"}
 }
 
+ConfigRegionWeather.regionAdjacencyMap = {
+        ["HEARTLANDS"] = {"GRIZZLIES_WEST", "CUMBERLAND_FOREST", "SCARLETT_MEADOWS", "EAST_GRIZZLIES", "ROANOKE_RIDGE"},
+        ["ROANOKE_RIDGE"] = {"HEARTLANDS", "EAST_GRIZZLIES", "BLUWATER_MARSH"},
+        ["SCARLETT_MEADOWS"] = {"HEARTLANDS", "BLUWATER_MARSH", "BAYOU_NWA"},
+        ["BAYOU_NWA"] = {"SCARLETT_MEADOWS", "BLUWATER_MARSH"},
+        ["BLUWATER_MARSH"] = {"ROANOKE_RIDGE", "SCARLETT_MEADOWS", "BAYOU_NWA"},
+        
+        ["GRIZZLIES_WEST"] = {"HEARTLANDS", "CUMBERLAND_FOREST", "EAST_GRIZZLIES", "BIG_VALLEY"},
+        ["CUMBERLAND_FOREST"] = {"HEARTLANDS", "GRIZZLIES_WEST", "EAST_GRIZZLIES"},
+        ["EAST_GRIZZLIES"] = {"HEARTLANDS", "GRIZZLIES_WEST", "CUMBERLAND_FOREST", "ROANOKE_RIDGE"},
+        
+        ["BIG_VALLEY"] = {"GRIZZLIES_WEST", "GREAT_PLAINS", "TALL_TREES"},
+        ["GREAT_PLAINS"] = {"BIG_VALLEY", "TALL_TREES"},
+        ["TALL_TREES"] = {"GREAT_PLAINS", "BIG_VALLEY", "HENNIGANS_STEAD"},
+        ["HENNIGANS_STEAD"] = {"TALL_TREES", "CHOLLA_SPRINGS"},
+        ["CHOLLA_SPRINGS"] = {"HENNIGANS_STEAD", "GAPTOOTH_RIDGE"},
+        ["GAPTOOTH_RIDGE"] = {"CHOLLA_SPRINGS", "RIO_BRAVO"},
+        ["RIO_BRAVO"] = {"GAPTOOTH_RIDGE"},
+    }
 
 ConfigRegionWeather.WeatherGroups = {
     ["Sunny"] = {
