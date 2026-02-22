@@ -1,9 +1,7 @@
-# RedM weather and time sync
+# FiveM/RedM weather and time sync
 
 # Features
 
-- Seasonal and regional weather for Redm
-  
 - Syncs time and weather for all players
 
 - Configurable weather pattern

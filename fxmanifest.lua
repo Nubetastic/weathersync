@@ -25,7 +25,8 @@ shared_scripts {
 
 client_scripts {
     "client/client.lua",
-    "client/region.lua"
+    "client/region.lua",
+    "client/syncCheck.lua"
 }
 
 server_scripts {

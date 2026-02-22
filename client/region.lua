@@ -21,6 +21,12 @@ AddEventHandler("weathersync:updateRegionalWeather", function(weatherData)
     end
 end)
 
+RegisterNetEvent("weathersync:getRegion")
+AddEventHandler("weathersync:getRegion", function()
+    local region = GetPlayerRegion()
+    TriggerServerEvent("weathersync:regionResponse", region)
+end)
+
 CreateThread(function()
     Wait(1000)
     

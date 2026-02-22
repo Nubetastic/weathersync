@@ -1,15 +1,20 @@
 local meanSeaLevel = Config.isRDR and 40.0 or 0.0
 
-local currentWeather = nil
-local currentWindDirection = 0.0
-local snowOnGround = false
-local syncEnabled = true
+currentWeather = nil
+currentWindDirection = 0.0
+snowOnGround = false
+syncEnabled = true
+
+timeStampTime = 0
+timeStampWeather = 0
+lastSyncedTime = {hour = 0, minute = 0}
+lastSyncedWeather = ""
 
 local forecastIsDisplayed = false
 local adminUiIsOpen = false
 
-local currentTime
-local currentTimescale = Config.timescale
+currentTime = nil
+currentTimescale = Config.timescale
 
 RegisterNetEvent("weathersync:changeWeather")
 RegisterNetEvent("weathersync:changeTime")
@@ -38,7 +43,7 @@ local function setWeather(weatherType, transitionTime)
 	end
 end
 
-local function setTime(hour, minute, second, transitionTime, freeze)
+function setTime(hour, minute, second, transitionTime, freeze)
 	if Config.isRDR then
 		Citizen.InvokeNative(0x669E223E64B1903C, hour, minute, second, transitionTime, true)
 	else
@@ -324,6 +329,9 @@ AddEventHandler("weathersync:applyRegionalWeather", function(weatherData)
 	local transitionTime = Config.isRDR and 15.0 or 10.0
 
 	local translatedWeather = translateWeatherForRegion(weatherData.variant, x, y, z)
+	
+	timeStampWeather = GetGameTimer()
+	lastSyncedWeather = translatedWeather
 
 	if Config.isRDR then
 		if not currentWeather then
@@ -367,6 +375,9 @@ AddEventHandler("weathersync:changeWeather", function(weather, transitionTime, p
 
 	local translatedWeather = translateWeatherForRegion(weather, x, y, z)
 
+	timeStampWeather = GetGameTimer()
+	lastSyncedWeather = translatedWeather
+
 	if Config.isRDR then
 		if not currentWeather then
 			transitionTime = 1.0
@@ -401,6 +412,9 @@ AddEventHandler("weathersync:changeTime", function(hour, minute, second, transit
 	if not syncEnabled then
 		return
 	end
+
+	timeStampTime = GetGameTimer()
+	lastSyncedTime = {hour = hour, minute = minute}
 
 	setTime(hour, minute, second, transitionTime, freezeTime)
 end)

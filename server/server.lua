@@ -5,6 +5,7 @@ local maxForecast = Config.maxForecast
 local syncDelay = Config.syncDelay
 
 local playerRegions = {}
+local pendingRegionRequests = {}
 
 local dayLength = 86400
 local weekLength = 604800
@@ -27,6 +28,7 @@ RegisterNetEvent("weathersync:setTimescale")
 RegisterNetEvent("weathersync:resetTimescale")
 RegisterNetEvent("weathersync:setSyncDelay")
 RegisterNetEvent("weathersync:resetSyncDelay")
+RegisterNetEvent("weathersync:regionResponse")
 
 local function contains(t, x)
 	for _, v in pairs(t) do
@@ -151,6 +153,33 @@ exports("resetSyncDelay", resetSyncDelay)
 exports("getForecast", function(regionName)
 	return createForecast(regionName)
 end)
+exports("getWeather", function(player)
+	if not player or player < 1 then
+		return nil
+	end
+
+	TriggerClientEvent("weathersync:getRegion", player)
+
+	local startTime = os.time()
+	while not pendingRegionRequests[player] and (os.time() - startTime) < 5 do
+		Wait(10)
+	end
+
+	local region = pendingRegionRequests[player]
+	pendingRegionRequests[player] = nil
+
+	if region then
+		local success, weatherData = pcall(function()
+			return exports['weathersync']:getRegionalWeather(region)
+		end)
+
+		if success and weatherData then
+			return weatherData.variant or weatherData.weatherType
+		end
+	end
+
+	return nil
+end)
 
 AddEventHandler("weathersync:setTime", setTime)
 AddEventHandler("weathersync:resetTime", resetTime)
@@ -202,6 +231,11 @@ end)
 
 AddEventHandler("playerDropped", function(reason)
 	playerRegions[source] = nil
+	pendingRegionRequests[source] = nil
+end)
+
+AddEventHandler("weathersync:regionResponse", function(region)
+	pendingRegionRequests[source] = region
 end)
 
 
