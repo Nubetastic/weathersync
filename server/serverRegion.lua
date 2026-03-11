@@ -33,39 +33,30 @@ local function Clamp(value, min, max)
 end
 
 local function GetCurrentSeason()
-    local time = {}
-    local success, result = pcall(function()
-        return exports['weathersync']:getTime()
-    end)
-    
-    if success and result then
-        time = result
-    else
-        time = {day = 0}
-    end
-    
-    local day = time.day or 0
+    -- Use real-world server month for season logic
+    local month = os.date("*t").month
     local season
-
+    -- Northern Hemisphere
     if configRegionWeather.Hemisphere then
-        if day >= 0 and day <= 80 then
+        if month == 12 or month == 1 or month == 2 then
             season = "Winter"
-        elseif day >= 81 and day <= 170 then
+        elseif month >= 3 and month <= 5 then
             season = "Spring"
-        elseif day >= 171 and day <= 260 then
+        elseif month >= 6 and month <= 8 then
             season = "Summer"
         else
             season = "Fall"
         end
     else
-        if day >= 0 and day <= 80 then
-            season = "Summer"
-        elseif day >= 81 and day <= 170 then
-            season = "Fall"
-        elseif day >= 171 and day <= 260 then
+        -- Southern Hemisphere
+        if month == 12 or month == 1 or month == 2 then
             season = "Winter"
-        else
+        elseif month >= 3 and month <= 5 then
+            season = "Fall"
+        elseif month >= 6 and month <= 8 then
             season = "Spring"
+        else
+            season = "Summer"
         end
     end
     
@@ -221,23 +212,26 @@ local function ProcessWeatherRipple()
             for _, neighborName in ipairs(neighbors) do
                 local neighborQueue = regionWeatherQueues[neighborName]
                 if not neighborQueue then goto nextNeighbor end
-                
                 local neighborSlot = neighborQueue.slots[#neighborQueue.slots]
                 if not neighborSlot then goto nextNeighbor end
-                
-                if neighborSlot.initialModifier >= HIGH_SEVERITY_THRESHOLD then
-                    goto nextNeighbor
+                if neighborSlot.initialModifier >= HIGH_SEVERITY_THRESHOLD then goto nextNeighbor end
+                if neighborSlot.initialModifier == -1 then goto nextNeighbor end
+                -- Check if neighbor can have snow or rain in its current season
+                local neighborSeason = GetCurrentSeason()
+                local neighborData = configRegionWeather.Regions[neighborName]
+                local canHaveSnow = false
+                local canHaveRain = false
+                if neighborData and neighborData[neighborSeason] then
+                    for _, weatherData in pairs(neighborData[neighborSeason]) do
+                        if weatherData[1] == "Snow" then canHaveSnow = true end
+                        if weatherData[1] == "Rain" then canHaveRain = true end
+                    end
                 end
-                
-                if neighborSlot.initialModifier == -1 then
-                    goto nextNeighbor
-                end
-                
+                if not (canHaveSnow or canHaveRain) then goto nextNeighbor end
                 local minVal = math.floor(lastSlot.initialModifier / 2)
                 local maxVal = lastSlot.initialModifier - INFLUENCE_SEVERITY_REDUCTION
                 local neighborModifier = math.random(minVal, maxVal)
                 neighborModifier = Clamp(neighborModifier, 0, 100)
-                
                 if neighborModifier > 0 then
                     if modifiersToApply[neighborName] == nil then
                         modifiersToApply[neighborName] = {}
@@ -245,7 +239,6 @@ local function ProcessWeatherRipple()
                     table.insert(modifiersToApply[neighborName], neighborModifier)
                     anyModifiersApplied = true
                 end
-                
                 ::nextNeighbor::
             end
             
@@ -275,14 +268,34 @@ local function ProcessWeatherRipple()
             local lastSlot = queue.slots[#queue.slots]
             if lastSlot and lastSlot.weatherUpdated then
                 local modifier = lastSlot.processedModifier
-                local sourceWeatherType = "Snow"
-                
-                lastSlot.weatherType = sourceWeatherType
+                -- Determine if region can have snow in its current season
+                local season = GetCurrentSeason()
+                local canHaveSnow = false
+                local canHaveRain = false
+                local regionData = configRegionWeather.Regions[regionName]
+                if regionData and regionData[season] then
+                    for _, weatherData in pairs(regionData[season]) do
+                        if weatherData[1] == "Snow" then
+                            canHaveSnow = true
+                        end
+                        if weatherData[1] == "Rain" then
+                            canHaveRain = true
+                        end
+                    end
+                end
+                local assignedWeatherType = nil
+                if canHaveSnow then
+                    assignedWeatherType = "Snow"
+                elseif canHaveRain then
+                    assignedWeatherType = "Rain"
+                else
+                    assignedWeatherType = lastSlot.weatherType -- fallback to original
+                end
+                lastSlot.weatherType = assignedWeatherType
                 lastSlot.severity = Clamp(modifier, 1, 100)
-                lastSlot.variant = SelectWeatherVariant(sourceWeatherType, lastSlot.severity)
+                lastSlot.variant = SelectWeatherVariant(assignedWeatherType, lastSlot.severity)
                 lastSlot.initialModifier = -1
                 lastSlot.weatherUpdated = false
-                
                 anyModifiersApplied = true
             end
         end
