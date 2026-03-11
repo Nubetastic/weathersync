@@ -50,13 +50,13 @@ local function GetCurrentSeason()
     else
         -- Southern Hemisphere
         if month == 12 or month == 1 or month == 2 then
-            season = "Winter"
+            season = "Summer"
         elseif month >= 3 and month <= 5 then
             season = "Fall"
         elseif month >= 6 and month <= 8 then
-            season = "Spring"
+            season = "Winter"
         else
-            season = "Summer"
+            season = "Spring"
         end
     end
     
